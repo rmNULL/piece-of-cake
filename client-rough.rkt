@@ -34,6 +34,7 @@
     (define chunk (hash-ref c 'chunk))
     (let try-downloading ([attempts 3])
       (define downloaded? (download link chunk))
+      (when downloaded? (cb chunk))
       (if downloaded?
           #t
           (if (positive? attempts)
@@ -66,11 +67,11 @@
 
 
 
-(define resp
+#;(define resp
   (join "JALLU"
         "https://www.nasa.gov/sites/default/files/thumbnails/image/stsci-h-p1930a-f-3213x2836.jpg"))
 
-(when (equal? (hash-ref resp 'status) "OK")
+#;(when (equal? (hash-ref resp 'status) "OK")
   (define token (hash-ref resp 'token))
   (ask-req-cycle PEERNAME token))
 
@@ -85,7 +86,15 @@
   (send main-window change-children (λ (c) '())))
 
 (define (verify-link-and-dl link)
-  void )
+  (define resp (join PEERNAME link))
+  (define fail? (equal? (hash-ref resp 'status) "FAIL"))
+  (if fail?
+      (hash-ref resp 'message)
+      (string-append "TOKEN " (hash-ref resp 'token))))
+
+  #;(when (equal? (hash-ref resp 'status) "OK")
+      (define token (hash-ref resp 'token))
+    (ask-req-cycle PEERNAME token))
 
 (define (draw-join)
   (clear-main-window)
@@ -101,12 +110,13 @@
   (define go-btn (new button% (parent row) (label "Get Token")
                       (callback (λ (_m _b)
                                   (define link (send link-field get-value))
-                                  (define msg (verify-link-and-dl link))
-                                  (send log-field set-label msg)))))
+                                  (thread (λ ()
+                                               (define msg (with-handlers ([hash? (λ (h) (hash-ref h 'message))])
+                                                             (verify-link-and-dl link)))
+                                               (send log-field set-label msg)))))))
   (send link-field get-value))
 
-(define (update-progress)
-  (void))
+
 
 
 (define (draw-dl)
@@ -120,10 +130,15 @@
   (define log-field (new message% (label "") (parent main-window)))
   (define go-btn (new button% (parent row) (label "Start Download")
                       (callback (λ (_m _b)
-                                  (define token (send token-field get-value))
-                                  (define msg
-                                    (ask-req-cycle PEERNAME token #:callback update-progress))
-                                  (send log-field set-label msg)))))
+                                  (thread (λ ()
+                                            (define (update-progress brange)
+                                              (define range (string-join (map ~a brange) "-"))
+                                              (define msg (string-append "completed " range))
+                                              (send log-field set-label msg))
+                                            (define token (send token-field get-value))
+                                            (define msg
+                                              (ask-req-cycle PEERNAME token #:callback update-progress))
+                                            (send log-field set-label msg)))))))
   (void))
 
 (define menu-bar (new menu-bar% [parent main-window]))
