@@ -1,14 +1,6 @@
 #lang racket
-#|
-(require racket/tcp)
-(define-values [i o] (tcp-connect "localhost" 8428))
-(write "PROG\nJALLU" o)
-(close-output-port o)
-(read i)
-(close-input-port i)
-|#
 
-(provide set-filesize! allot reset-allotments! mark-allotment)
+(provide set-filesize! allot reset-allotments! mark-allotment all-allotments-complete?)
 
 (define KB 1024)
 (define MB (* KB 1024))
@@ -57,14 +49,19 @@
 
 (define (mark-allotment peer)
   (define chunk (find-chunk peer))
-  (define marked?
+  (define cbytes
     (when (and chunk (not (chunk-completed? chunk)))
       (define others (filter (λ (c) (not (eq? c chunk))) allotments))
       (set! chunk (cons (chunk-offset chunk)
                         (cons COMPLETED peer)))
       (set! allotments (cons chunk others))
-      #T))
-  (eq? #t marked?))
+      (offset->byterange (chunk-offset chunk))))
+  (and (list? cbytes) cbytes))
+
+(define (offset->byterange offset)
+  ;; exclusive end
+  (list (*  offset segsize)
+        (sub1 (+ (*  offset segsize) segsize))))
 
 (define (allot peer)
   (define alloted? (find-chunk peer))
@@ -75,7 +72,8 @@
       (define offset (chunk-offset chunk))
       (set! allotments
             (append (rest u) (cons (cons offset peer) t)))
-      (list (*  offset segsize)
-            (sub1 (+ (*  offset segsize) segsize))))))
+      (offset->byterange offset))))
 
-
+(define (all-allotments-complete?)
+  (for/and ([chunk allotments])
+    (chunk-completed? chunk)))
