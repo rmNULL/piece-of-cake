@@ -61,7 +61,7 @@
             [token (generate-token link)])
         (hash-set! LINKS token link)
         (hash-set! DLERS token '())
-        (set-filesize! clen)
+        (set-filesize! token clen)
         (hash 'status "OK" 'token token))))
 
 (define (verify-token! token)
@@ -72,7 +72,7 @@
 (define (peer-allot peer token rest-req)
   (verify-token! token)
   (define link (hash-ref LINKS token #f))
-  (define chunk (allot peer))
+  (define chunk (allot token peer))
   (when (void? chunk) (raise (hash 'status "FAIL")))
   (hash 'status "OK"
         'link link ;; this is redundant!!
@@ -84,17 +84,17 @@
 (define (peer-mark peer token rest-req)
   (verify-token! token)
   (define dlers (hash-ref DLERS token))
-  (define chunk (mark-allotment peer))
+  (define chunk (mark-allotment token peer))
   (when chunk
     (hash-set! DLERS token (cons (list chunk peer) dlers)))
-  (define complete? (all-allotments-complete?))
+  (define complete? (all-allotments-complete? token))
   (hash 'status (if chunk "OK" "FAIL")
         'completed complete?))
 
 (define handle-request
     (let ([dispatch-table (hash "JOIN" link-register!
                                 "ASK"  peer-allot
-                                "QUIT" peer-cancel
+                                "CNCL" peer-cancel
                                 "DONE" peer-mark
                                 )])
       (λ (request)
