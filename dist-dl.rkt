@@ -73,7 +73,8 @@
   (verify-token! token)
   (define link (hash-ref LINKS token #f))
   (define chunk (allot token peer))
-  (when (void? chunk) (raise (hash 'status "FAIL")))
+  (when (void? chunk)
+    (raise (hash 'status "FAIL" 'message "Failed to allocate chunk")))
   (hash 'status "OK"
         'link link ;; this is redundant!!
         'chunk chunk))
@@ -91,11 +92,17 @@
   (hash 'status (if chunk "OK" "FAIL")
         'completed complete?))
 
+(define (dl-stats peer token rest-req)
+  (verify-token! token)
+  (hash 'status "OK"
+        'downloaders (hash-ref DLERS token '())))
+
 (define handle-request
     (let ([dispatch-table (hash "JOIN" link-register!
                                 "ASK"  peer-allot
                                 "CNCL" peer-cancel
                                 "DONE" peer-mark
+                                "STAT" dl-stats
                                 )])
       (λ (request)
         ;; action token
