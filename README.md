@@ -1,5 +1,5 @@
-# piece-of-cake
-[WIP] A distributed downloading
+# [WIP] piece-of-cake
+ A distributed download tracker
 
 # Authors
 rmnull
