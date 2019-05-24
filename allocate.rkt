@@ -1,6 +1,6 @@
 #lang racket
 
-(provide set-filesize! allot mark-allotment all-allotments-complete?)
+(provide set-filesize! allot mark-allotment all-allotments-complete? total-chunks)
 
 (define KB 1024)
 (define MB (* KB 1024))
@@ -8,13 +8,28 @@
 (define SEG 2)
 
 (define segsize (* SEG MB))
-(define    clen #f)
+(define    clen (make-hash))
+
+(define (total-chunks token)
+  (length (hash-ref allotments-by-token token)))
+
 (define (set-filesize! token len)
-  (define (reset-allotments! token)
+  (define lenm  (+ (quotient  len MB)
+                   (if (zero? (remainder len MB)) 0 1)))
+  (define (fresh-allotments)
+    (define q (quotient lenm SEG))
+    (define r (remainder lenm SEG))
+    (define segs
+      (for/list ([start (in-range q)])
+        (cons start UNALLOTED)))
+    (if (zero? r)
+        segs
+        (cons (cons q UNALLOTED) segs)))
+  
+  (define (reset-allotments!)
     (hash-set! allotments-by-token token (fresh-allotments)))
-  (set! clen (+ (quotient  len MB)
-                (if (zero? (remainder len MB)) 0 1)))
-  (reset-allotments! token))
+  (hash-set! clen token lenm)
+  (reset-allotments!))
 
 (define (unalloted allotments)
   (for/list ([blk-alloted? (in-list allotments)]
@@ -28,15 +43,7 @@
 (define (chunk-unalloted? v) (equal? UNALLOTED (chunk-state v)))
 (define (chunk-completed? v) (pair? (chunk-state v)))
 
-(define (fresh-allotments)
-  (define q (quotient clen SEG))
-  (define r (remainder clen SEG))
-  (define segs
-    (for/list ([start (in-range q)])
-      (cons start UNALLOTED)))
-  (if (zero? r)
-      segs
-      (cons (cons q UNALLOTED) segs)))
+
 
 ;; token => ( (chunk-begin . state) * )
 ;; state is one of ( UNALLOTED (COMPLETED . "PEER") "PEER NAME" )
@@ -67,15 +74,17 @@
 
 (define (allot token peer)
   (define allotments (hash-ref allotments-by-token token))
-  (define alloted? (find-chunk peer allotments))
-  (unless alloted?
-    (define-values [u t] (partition chunk-unalloted? allotments))
-    (unless (empty? u)
-      (define chunk (first u))
-      (define offset (chunk-offset chunk))
-      (hash-set! allotments-by-token token
-                 (append (rest u) (cons (cons offset peer) t)))
-      (offset->byterange offset))))
+  (define chunk (find-chunk peer allotments))
+  (if chunk
+    (offset->byterange (chunk-offset chunk))
+    (let ()
+      (define-values [u t] (partition chunk-unalloted? allotments))
+      (unless (empty? u)
+        (define chunk (first u))
+        (define offset (chunk-offset chunk))
+        (hash-set! allotments-by-token token
+                   (append (rest u) (cons (cons offset peer) t)))
+        (offset->byterange offset)))))
 
 (define (all-allotments-complete? token)
   (define allotments (hash-ref allotments-by-token token))
