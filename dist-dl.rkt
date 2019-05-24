@@ -1,10 +1,10 @@
 #lang racket
+(require racket/random)
 (require racket/tcp)
 (require net/url net/head)
 (require json)
 
 (require "./allocate.rkt")
-(define *PORT* 8428)
 
 (define (resolve-redirects link)
   (let redirect-loop ([link link]
@@ -41,7 +41,14 @@
 (define DOWNLOADED (make-hash))
 
 (define (generate-token link)
-  "P0@252")
+  (define symbols
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789!@#$%^&*()-+_={}[]:;,<>.?`~")
+  (let loop ()
+    (define token
+      (list->string (build-list (random 8 16) (λ (_idx) (random-ref symbols)))))
+    (if (hash-ref LINKS token #f)
+      (loop)
+      token)))
 
 (define (link-register! peer req)
   ;; TODO LINK VERIFICATION
@@ -135,7 +142,7 @@
               (fn peer (second acn-tkn) (cddr req))))))))
 
 (define (start-server! port)
-    (define listener (tcp-listen *PORT* 6 true))
+    (define listener (tcp-listen port 6 true))
     (let-values ([(_0 port _1 _2) (tcp-addresses listener #t)])
       (displayln (format "CIA ears on ~a" port)))
     (let serve ()
@@ -158,4 +165,6 @@
                   (close-output-port out))))
       (serve)))
 
-(start-server! *PORT*)
+(module+ main
+  (define *PORT* 8428)
+  (start-server! *PORT*))
