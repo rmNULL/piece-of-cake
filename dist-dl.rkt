@@ -102,6 +102,12 @@
           [tot (total-chunks token)])
       (* (/ dled tot) 100.0)))
 
+;;
+;; => RESPONSE
+;; =============
+;; status = "OK" | "FAIL"
+;;
+;; completed = % of total download completed
 (define (peer-mark peer token rest-req)
   (verify-token! token)
   (define dlers (hash-ref DOWNLOADED token))
@@ -113,10 +119,23 @@
   (hash 'status (if chunk "OK" "FAIL")
         'completed completed))
 
+;;
+;; => RESPONSE
+;; =============
+;; status = "OK" | "FAIL"
+;;
+;; downloaders = [ [chunk peer] ...* ]
+;; 	chunk = [ begin end ] ; begin,end are integers represtng bytes
+;; 	 peer = name of the chunk holder
+;; 
+;; completed = % of total download completed
+;;
 (define (dl-stats peer token rest-req)
   (verify-token! token)
   (hash 'status "OK"
-        'downloaders (hash-ref DOWNLOADED token '())
+        'downloaders (sort (hash-ref DOWNLOADED token '())
+			   string<?
+			   #:key caar)
         'completed (completed-% token)))
 
 (define handle-request
@@ -152,7 +171,7 @@
                 (define request
                   (let loop ([read ""]
                              [l (read-line in)])
-                    (if (equal? l "")
+                    (if (or (eof-object? l) (equal? l ""))
                         read
                         (loop (string-append read "\n" l)
                               (read-line in)))))
