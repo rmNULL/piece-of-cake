@@ -211,7 +211,7 @@
 (define (start-server! port)
     (define listener (tcp-listen port 6 true))
     (let-values ([(_0 port _1 _2) (tcp-addresses listener #t)])
-      (printf "CIA ears on ~a\n" port))
+      (fprintf (current-error-port) "CIA ears on ~a\n" port))
     (let serve ()
       (define-values (in out) (tcp-accept listener))
       (displayln "connected")
@@ -236,6 +236,6 @@
 (module+ main
   (define *PORT*
     (if (getenv "PORT")
-        (string->number (getenv "PORT"))
+        8080#;(string->number (getenv "PORT"))
         8080))
   (start-server! *PORT*))
