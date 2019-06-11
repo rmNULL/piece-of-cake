@@ -236,6 +236,6 @@
 (module+ main
   (define *PORT*
     (if (getenv "PORT")
-        8080 #;(string->number (getenv "PORT"))
+        (string->number (getenv "PORT"))
         8080))
   (start-server! *PORT*))
