@@ -6,7 +6,7 @@
 (define PEERNAME "λ")
 
 (define (join peer link)
-  (define req (format "JOIN\n~a\n~a" peer link))
+  (define req (format "JOIN\n~a\n~a\n\n" peer link))
   (define-values [i o] (tcp-connect "localhost" *PORT*))
   (write req o)
   (close-output-port o)
@@ -50,7 +50,7 @@
   (let loop ([acn-hdl (first cc)])
     [define action-handler (cdr acn-hdl)]
     [define action (car acn-hdl)]
-    [define req (format "~a ~a\n~a" action token "peer")]
+    [define req (format "~a ~a\n~a\n\n" action token "peer")]
     (define-values (i o) (tcp-connect "localhost" *PORT*))
     (write req o)
     (close-output-port o)
@@ -135,6 +135,7 @@
                                               (define msg (string-append "completed " range))
                                               (send log-field set-label msg))
                                             (define token (send token-field get-value))
+                                            (displayln token)
                                             (define msg
                                               (ask-req-cycle PEERNAME token #:callback update-progress))
                                             (send log-field set-label msg)))))))
