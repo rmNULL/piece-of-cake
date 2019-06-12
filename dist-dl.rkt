@@ -71,6 +71,10 @@
   (define (link-download-size resp)
     (define content-len (extract-content-length resp))
     content-len)
+
+  (define (link-download-type resp)
+    (define t (extract-field "content-type" resp))
+    (or t "unknown"))
   
   (define loh
     (with-handlers ([exn:fail? (λ (exn) (hash 'status "FAIL"
@@ -85,21 +89,23 @@
         (error "The link doesnt resolve to a valid resource"))
       (unless (shareable-download? resp)
         (error "The link doesnt support shared download"))
-      (cons url (link-download-size resp))))
+      (list url (link-download-size resp) (link-download-type resp))))
 
-  (displayln ">> > >======= ")
   (displayln link)
   
   (if (hash? loh)
       loh
-      (let ([url-clen loh]
+      (let ([L loh]
             [token (generate-token link)])
-        (match-define (cons url clen) url-clen)
+        (match-define (list url clen ctype) L)
+
         (unless (hash-ref LINKS-META link #f)
           (define resource-name
             (path/param-path (last (url-path url))))
           (hash-set! LINKS-META link
-                     (hash 'saveas resource-name 'size clen)))
+                     (hash 'saveas resource-name
+                           'type ctype 
+                           'size clen)))
         (hash-set! LINKS token link)
         (hash-set! DOWNLOADED token '())
         (set-filesize! token clen)
@@ -237,5 +243,5 @@
   (define *PORT*
     (if (getenv "PORT")
         (string->number (getenv "PORT"))
-        8080))
+        8428))
   (start-server! *PORT*))
